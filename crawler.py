@@ -1,4 +1,5 @@
 import re
+import threading
 
 import requests
 from bs4 import BeautifulSoup
@@ -6,6 +7,8 @@ from bs4 import BeautifulSoup
 
 URL_AUTOMOVEIS = 'https://django-anuncios.solyd.com.br'
 
+LINKS = []
+TELEFONES = []
 
 def requisicao(url):
     try:
@@ -58,18 +61,41 @@ def encontrar_numero(soup):
         return regex
 
 
-resposta_busca = requisicao(URL_AUTOMOVEIS)
-if resposta_busca:
-    soup_busca = parsing(resposta_busca)
-    if soup_busca:
-        links = encontar_link(soup_busca)
-        for link in links:
-            reposta_anuncio = requisicao(URL_AUTOMOVEIS + link)
-            print(link)
-            if reposta_anuncio:
-                soup_anuncio = parsing(reposta_anuncio)
-                numero = encontrar_numero(soup_anuncio)
-                if numero:
-                    print(numero)
+def descobrir_telefones():
+    while True:
+        try:
+            link_anuncio = LINKS.pop(0)
+        except:
+            return
+        resposta_anuncio = requisicao(URL_AUTOMOVEIS + link_anuncio)
+
+        if resposta_anuncio:
+            soup_anuncio = parsing(resposta_anuncio)
+            if soup_anuncio:
+                telefone = encontrar_numero(soup_anuncio)
+                if telefone:
+                    print(f'Telefone encontrado {telefone}')
+                    TELEFONES.append(f'Link: {link_anuncio} Telefone: {telefone}')
                 else:
-                    print('nao foi encontrado numero')
+                    TELEFONES.append(f'Link: {link_anuncio} Telefone: NONE')
+
+
+if __name__ == '__main__':
+    resposta_busca =requisicao(URL_AUTOMOVEIS)
+    if resposta_busca:
+        soup_busca = parsing(resposta_busca)
+        if soup_busca:
+            LINKS = encontar_link(soup_busca)
+            thread_1 = threading.Thread(target=descobrir_telefones())
+            thread_2 = threading.Thread(target=descobrir_telefones())
+
+            thread_1.start()
+            thread_2.start()
+
+            thread_1.join()
+            thread_2.join()
+
+            print('-------------------------------------')
+            for telefone in TELEFONES:
+                print(telefone)
+            print('-------------------------------------')
